@@ -19,6 +19,7 @@ assertInPath mvn
 
 ## cheap curl replacement to avoid dependency on curl
 ## https://superuser.com/questions/238987/how-does-unix-search-for-executable-files
+## todo why not simply URL.readText ??
 kurl(){
 kscript 'import java.io.*
 
@@ -199,6 +200,25 @@ if [[ "$scriptFile" != *kts ]] && [[ ! -e ${scriptFile} ]]; then
     scriptFile=${cachedScript}
 fi
 
+
+# resolve includes if present
+if [[ -z "$(which resolve_includes.kts 2>/dev/null)" ]]; then
+    resolve_script_deps(){ kscript "https://raw.githubusercontent.com/holgerbrandl/kscript/v${KSCRIPT_VERSION}/resolve_includes.kts" "$@"; }
+else
+    resolve_script_deps(){ resolve_includes.kts "$@"; }
+fi
+
+if [ $(grep "^//INCLUDE" ${scriptFile} | wc -l) -gt 0 ]; then
+    scriptMd5=$(kscript_md5 ${scriptFile})
+
+    incResolved=${KSCRIPT_CACHE_DIR}/incres_${scriptMd5}.kts
+
+    resolve_includes $scriptFile $incResolved
+
+    if [ $? -eq 1 ]; then rm ${incResolved}; echo "[ERROR] Failed to resolve //INCLUDE directives" 1>&1; exit 1; fi
+
+    scriptFile=${incResolved}
+fi
 
 ## just proceed if the script file is a regular file at this point
 #echo "scriptfile is $scriptFile and interactive $is_interactive"
